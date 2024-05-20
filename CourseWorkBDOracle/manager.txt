@@ -1,0 +1,11 @@
+select * from MYAIR_SCHEMA.Plane;
+select * from MYAIR_SCHEMA.Ticket;
+select * from MYAIR_SCHEMA.Flight;
+
+
+EXEC MYAIR_SCHEMA.ADD_PLANE('Boeing 746', 300, 5000);
+COMMIT;
+
+exec MYAIR_SCHEMA.CANCEL_FLIGHT(197);
+COMMIT;
+

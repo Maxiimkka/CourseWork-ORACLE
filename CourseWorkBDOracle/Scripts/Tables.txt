@@ -1,0 +1,211 @@
+                     ---------------------
+               -- TABLES CREATION --
+                     ---------------------
+drop table route;
+drop table ticket;
+drop table flight;
+drop table luggage;
+drop table customer;
+drop table airport;
+drop table plane;
+drop table status;
+drop table ticket_status;
+
+CREATE TABLE Airport (
+  airport_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  airport_name NVARCHAR2(60) NOT NULL,
+  location_country NVARCHAR2(40) NOT NULL,
+  location_city NVARCHAR2(40) NOT NULL
+);
+
+CREATE TABLE Plane (
+  plane_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  plane_model NVARCHAR2(20) NOT NULL,
+  places_capacity NUMBER(3) NOT NULL,
+  max_luggage_weight NUMBER(4) NOT NULL
+);
+
+CREATE TABLE Route (
+  route_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  departure_city_id NUMBER NOT NULL,
+  destination_city_id NUMBER NOT NULL,
+  CONSTRAINT fk_route_departure FOREIGN KEY (departure_city_id) REFERENCES Airport (airport_id),
+  CONSTRAINT fk_route_destination FOREIGN KEY (destination_city_id) REFERENCES Airport (airport_id)
+);
+
+CREATE TABLE Status (
+  status_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  status_description NVARCHAR2(30)
+);
+
+CREATE TABLE Flight (
+  flight_number NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  plane_id NUMBER,
+  route_id NUMBER NOT NULL,
+  departure_datetime DATE NOT NULL,
+  arrive_datetime DATE NOT NULL,
+  available_seats NUMBER(3) NOT NULL,
+  status NUMBER NOT NULL,
+  CONSTRAINT fk_flight_plane FOREIGN KEY (plane_id) REFERENCES Plane (plane_id),
+  CONSTRAINT fk_flight_route FOREIGN KEY (route_id) REFERENCES Route (route_id),
+  CONSTRAINT fk_flight_status FOREIGN KEY (status) REFERENCES Status (status_id)
+);
+
+CREATE TABLE Luggage (
+  luggage_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  weight NUMBER(3) NOT NULL
+);
+
+
+CREATE TABLE Ticket_status (
+  status_num NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  status_description NVARCHAR2(20) NOT NULL
+);
+
+CREATE TABLE Customer (
+  customer_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  full_name NVARCHAR2(100) NOT NULL,
+  date_of_birth DATE NOT NULL,
+  passport_series NVARCHAR2(10) NOT NULL UNIQUE
+);
+
+CREATE TABLE Ticket (
+  ticket_num NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  flight_number NUMBER NOT NULL,
+  place_number NUMBER(3) NOT NULL,
+  price NUMBER(7,2) NOT NULL,
+  status_num NUMBER NOT NULL,
+  customer_id NUMBER NOT NULL,
+  luggage_id NUMBER,
+  CONSTRAINT fk_ticket_flight FOREIGN KEY (flight_number) REFERENCES Flight (flight_number),
+  CONSTRAINT fk_ticket_status FOREIGN KEY (status_num) REFERENCES Status (status_id),
+  CONSTRAINT fk_ticket_customer FOREIGN KEY (customer_id) REFERENCES Customer (customer_id),
+  CONSTRAINT fk_ticket_luggage FOREIGN KEY (luggage_id) REFERENCES Luggage (luggage_id)
+);
+
+
+
+                  ---------------------
+               -- TABLES INSERT --
+                  ---------------------
+
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('John F. Kennedy International Airport', 'United States', 'New York');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Los Angeles International Airport', 'United States', 'Los Angeles');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('London Heathrow Airport', 'United Kingdom', 'London');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Charles de Gaulle Airport', 'France', 'Paris');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Frankfurt Airport', 'Germany', 'Frankfurt');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Dubai International Airport', 'United Arab Emirates', 'Dubai');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Hong Kong International Airport', 'China', 'Hong Kong');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Tokyo International Airport', 'Japan', 'Tokyo');
+
+INSERT INTO Airport (airport_name, location_country, location_city)
+VALUES ('Sydney Kingsford Smith Airport', 'Australia', 'Sydney');
+
+select * from Airport;
+commit;
+
+
+
+INSERT INTO Plane (plane_model, places_capacity, max_luggage_weigth)
+VALUES ('Boeing 737', 200, 9500);
+
+INSERT INTO Plane (plane_model, places_capacity, max_luggage_weigth)
+VALUES ('Airbus A320', 180, 8000);
+
+INSERT INTO Plane (plane_model, places_capacity, max_luggage_weigth)
+VALUES ('Embraer E190', 100, 5000);
+
+INSERT INTO Plane (plane_model, places_capacity, max_luggage_weigth)
+VALUES ('Boeing 777', 400, 9900);
+
+INSERT INTO Plane (plane_model, places_capacity, max_luggage_weigth)
+VALUES ('Airbus A380', 550, 9950);
+
+select * from Plane;
+commit;
+
+
+
+INSERT INTO Status(status_description)
+values ('Scheduled');
+
+INSERT INTO Status(status_description)
+values ('Cancelled');
+
+INSERT INTO Status(status_description)
+values ('Completed');
+
+INSERT INTO Status(status_description)
+values ('Delayed');
+
+INSERT INTO Status(status_description)
+values ('Executing');
+
+select * from Status;
+commit;
+
+
+-- Вставка записей в таблицу "Luggage"
+INSERT INTO Luggage (weight)
+VALUES (10);
+
+INSERT INTO Luggage (weight)
+VALUES (15);
+
+INSERT INTO Luggage (weight)
+VALUES (20);
+
+INSERT INTO Luggage (weight)
+VALUES (9951);
+
+select * from luggage;
+commit;
+
+
+INSERT INTO Customer (full_name, date_of_birth, passport_series)
+VALUES ('John Smith', TO_DATE('1980-05-15', 'YYYY-MM-DD'), 'AB3349516');
+
+INSERT INTO Customer (full_name, date_of_birth, passport_series)
+VALUES ('Jane Doe', TO_DATE('1992-09-22', 'YYYY-MM-DD'), 'CD9876543');
+
+INSERT INTO Customer (full_name, date_of_birth, passport_series)
+VALUES ('Michael Johnson', TO_DATE('1975-12-10', 'YYYY-MM-DD'), 'EF5432198');
+
+INSERT INTO Customer (full_name, date_of_birth, passport_series)
+VALUES ('Emily Wilson', TO_DATE('1988-07-03', 'YYYY-MM-DD'), 'GH7654321');
+
+INSERT INTO Customer (full_name, date_of_birth, passport_series)
+VALUES ('David Brown', TO_DATE('1995-02-28', 'YYYY-MM-DD'), 'IJ2345678');
+
+select * from Customer;
+commit;
+
+
+
+insert into Ticket_status(status_description)
+values('Booked');
+
+insert into Ticket_status(status_description)
+values('Refunded');
+
+insert into Ticket_status(status_description)
+values('Used');
+
+select * from Ticket_status;
+commit;

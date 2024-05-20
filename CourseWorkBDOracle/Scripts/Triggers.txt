@@ -1,0 +1,51 @@
+                            ---------------------------------
+               -- TRIGGERS CREATION AND CHECK --
+                             ---------------------------------
+
+drop trigger update_available_seats;
+--1--
+CREATE OR REPLACE TRIGGER update_available_seats
+BEFORE INSERT ON Ticket
+FOR EACH ROW
+DECLARE
+  v_available_seats number;
+BEGIN
+  SELECT available_seats
+  INTO v_available_seats
+  FROM Flight
+  WHERE flight_number = :NEW.flight_number;
+  
+  IF v_available_seats <= 0 THEN
+    RAISE_APPLICATION_ERROR(-20001, 'No available seats on this flight.');
+  END IF;
+  
+  UPDATE Flight
+  SET available_seats = available_seats - 1
+  WHERE flight_number = :NEW.flight_number;
+END;
+
+
+
+INSERT INTO Flight (plane_id, route_id, departure_datetime, arrive_datetime, available_seats, status)
+VALUES (1, 1, SYSDATE, SYSDATE, 200, 1);
+
+INSERT INTO Ticket (flight_number, place_number, price, status_num, customer_id, luggage_id)
+VALUES (1, 1, 100.00, 1, 1, 1);
+
+SELECT available_seats
+FROM Flight
+WHERE flight_number = 1;
+
+--2--
+CREATE OR REPLACE TRIGGER increase_available_seats
+AFTER UPDATE OF status_num ON Ticket
+FOR EACH ROW
+BEGIN
+ IF :NEW.status_num = 2 THEN
+    UPDATE Flight
+    SET available_seats = available_seats + 1
+    WHERE flight_number = :NEW.flight_number;
+  END IF;
+END;
+
+update Ticket set status_num = 2 where ticket_num = 2;

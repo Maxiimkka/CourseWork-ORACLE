@@ -1,0 +1,14 @@
+BEGIN
+  MYAIR_SCHEMA.Booking_Ticket(203, 4,null); 
+END;
+COMMIT;
+
+
+
+VAR v_tickets REFCURSOR;
+EXEC MYAIR_SCHEMA.GET_TICKETS_BY_CUSTOMER(2, :v_tickets);
+PRINT v_tickets;
+
+
+exec MYAIR_SCHEMA.CANCEL_TICKET(10,3);
+COMMIT;

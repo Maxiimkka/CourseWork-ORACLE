@@ -1,0 +1,518 @@
+                        -----------------------
+                --------PROCEDURES-----
+                          -----------------------
+                
+    --------FOR CLIENT--------
+  SET SERVEROUTPUT ON; 
+ --1--
+CREATE OR REPLACE PROCEDURE GetAvailableSeatsCount(
+  p_flight_number IN NUMBER,
+  p_available_seats OUT NUMBER
+)
+AS
+BEGIN
+  SELECT (SELECT places_capacity FROM Plane WHERE plane_id = f.plane_id) - COUNT(*)
+  INTO p_available_seats
+  FROM Flight f
+  JOIN Ticket t ON f.flight_number = t.flight_number
+  WHERE f.flight_number = p_flight_number AND t.status_num = 1
+  GROUP BY f.plane_id;
+END;
+/
+
+--cheak--
+DECLARE
+  v_flight_number NUMBER := 2;
+  v_available_seats NUMBER;
+BEGIN
+  GetAvailableSeatsCount(v_flight_number, v_available_seats);
+  dbms_output.put_line('Available seats: ' || v_available_seats);
+END;
+/
+   
+                
+
+--2 бронь билета
+
+
+CREATE OR REPLACE PROCEDURE BookingTicket (
+  flight_num IN NUMBER,
+  customer_id IN NUMBER,
+  luggage_weight IN NUMBER DEFAULT NULL
+)
+AS
+  luggage_id NUMBER;
+  place_num NUMBER;
+  price NUMBER;
+BEGIN
+  IF luggage_weight IS NOT NULL THEN
+    INSERT INTO Luggage(weight)
+    VALUES (luggage_weight);
+    SELECT MAX(luggage_id) INTO luggage_id FROM Luggage;
+  END IF;
+
+  SELECT COALESCE(MAX(place_number), 0) + 1
+  INTO place_num
+  FROM Ticket
+  WHERE flight_number = flight_num;
+
+  price := ROUND(DBMS_RANDOM.VALUE(400, 1000), 0);
+
+  INSERT INTO Ticket(flight_number, place_number, price, status_num, customer_id, luggage_id)
+  VALUES (flight_num, place_num, price, 1, customer_id, luggage_id);
+END;
+
+
+BEGIN
+  BookingTicket(2, 2,null); 
+END;
+
+select * from Ticket;
+select * from Flight;
+
+--3-- возврат билета
+CREATE OR REPLACE PROCEDURE CANCEL_TICKET(
+    p_ticket_num IN NUMBER,
+    p_customer_id IN NUMBER
+) AS
+BEGIN
+    UPDATE Ticket
+    SET status_num = 2
+    WHERE ticket_num = p_ticket_num AND customer_id = p_customer_id;
+    
+    COMMIT;
+END;
+
+--check--
+exec CANCEL_TICKET(1,1);
+
+select * from customer;
+select * from ticket;
+
+--4-- просмотр билетов пользователя 
+CREATE OR REPLACE PROCEDURE GET_TICKETS_BY_CUSTOMER(
+    p_customer_id IN NUMBER,
+    p_tickets OUT SYS_REFCURSOR
+) AS
+BEGIN
+    OPEN p_tickets FOR
+    SELECT t.ticket_num, t.flight_number, t.place_number, t.price, t.customer_id, ts.status_description
+    FROM Ticket t inner join ticket_status ts on t.status_num = ts.status_num
+    WHERE t.customer_id = p_customer_id;
+END;
+
+--check
+VAR v_tickets REFCURSOR;
+EXEC GET_TICKETS_BY_CUSTOMER(1, :v_tickets);
+PRINT v_tickets;
+
+  --------FOR MANAGER--------
+
+--1--
+CREATE OR REPLACE PROCEDURE CANCEL_FLIGHT (
+    p_flight_num NUMBER
+) AS
+    v_status NUMBER;
+BEGIN
+    SELECT status INTO v_status FROM flight WHERE flight_number = p_flight_num;
+ 
+    IF v_status <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20009, 'Flight is not on "scheduled" status, it cannot be cancelled');
+    END IF;
+    UPDATE flight SET status = 2 WHERE flight_number = p_flight_num;
+    UPDATE ticket SET status_num = 2 WHERE flight_number = p_flight_num AND status_num <> 2;
+    
+    COMMIT;
+END;
+
+select * from flight;
+
+exec CANCEL_FLIGHT(3);
+select * from ticket;
+
+--2--
+create or replace procedure ADD_FLIGHT(
+p_plane_id number,
+p_route_id number,
+p_dep_datetime date,
+p_dest_datetime date
+)
+as
+av_seats NUMBER;
+BEGIN
+select places_capacity 
+into av_seats
+from plane
+where plane_id = p_plane_id;
+insert into Flight(plane_id, route_id, departure_datetime, arrive_datetime, available_seats,status)
+values(p_plane_id, p_route_id, p_dep_datetime, p_dest_datetime, av_seats, 1);
+commit;
+END;
+
+exec ADD_FLIGHT(3, 1,TO_DATE('12.06.2023 10:00:00', 'DD.MM.YYYY HH24:MI:SS'),TO_DATE('12.06.2023 20:15:00', 'DD.MM.YYYY HH24:MI:SS'));
+select * from flight;
+commit;
+
+--3--
+CREATE OR REPLACE PROCEDURE DELETE_FLIGHT(
+  p_flight_number NUMBER
+)
+AS
+BEGIN
+  DELETE FROM Flight
+  WHERE flight_number = p_flight_number;
+  COMMIT;
+END;
+
+exec DELETE_FLIGHT(2);
+commit;
+
+--4--
+
+CREATE OR REPLACE PROCEDURE UPDATE_FLIGHT(
+  p_flight_number NUMBER,
+  p_plane_id NUMBER,
+  p_route_id NUMBER,
+  p_dep_datetime DATE,
+  p_dest_datetime DATE,
+  p_available_seats NUMBER,
+  p_status NUMBER
+)
+AS
+BEGIN
+  UPDATE Flight
+  SET plane_id = p_plane_id,
+      route_id = p_route_id,
+      departure_datetime = p_dep_datetime,
+      arrive_datetime = p_dest_datetime,
+      available_seats = p_available_seats,
+      status = p_status
+  WHERE flight_number = p_flight_number;
+  COMMIT;
+END;
+
+EXEC UPDATE_FLIGHT(2, 1, 1, TO_DATE('13.06.2023 09:30:00', 'DD.MM.YYYY HH24:MI:SS'), TO_DATE('13.06.2023 19:45:00', 'DD.MM.YYYY HH24:MI:SS'), 198, 2);
+commit;
+
+--5--
+
+CREATE OR REPLACE PROCEDURE ADD_ROUTE(
+  p_departure_city_id NUMBER,
+  p_destination_city_id NUMBER
+)
+AS
+BEGIN
+  INSERT INTO Route (departure_city_id, destination_city_id)
+  VALUES (p_departure_city_id, p_destination_city_id);
+  
+  COMMIT;
+END;
+
+EXEC ADD_ROUTE(3, 4);
+COMMIT;
+
+--6--
+CREATE OR REPLACE PROCEDURE UPDATE_ROUTE(
+  p_route_id NUMBER,
+  p_departure_city_id NUMBER,
+  p_destination_city_id NUMBER
+)
+AS
+BEGIN
+  UPDATE Route
+  SET departure_city_id = p_departure_city_id,
+      destination_city_id = p_destination_city_id
+  WHERE route_id = p_route_id;
+  
+  COMMIT;
+END;
+
+EXEC UPDATE_ROUTE(2, 3, 5);
+COMMIT;
+
+--7--
+CREATE OR REPLACE PROCEDURE DELETE_ROUTE(
+  p_route_id NUMBER
+)
+AS
+BEGIN
+  DELETE FROM Route
+  WHERE route_id = p_route_id;
+  
+  COMMIT;
+END;
+
+EXEC DELETE_ROUTE(2);
+COMMIT;
+
+--8--
+
+CREATE OR REPLACE PROCEDURE ADD_PLANE(
+  p_plane_model NVARCHAR2,
+  p_places_capacity NUMBER,
+  p_max_luggage_weight NUMBER
+)
+AS
+BEGIN
+  INSERT INTO Plane (plane_model, places_capacity, max_luggage_weight)
+  VALUES (p_plane_model, p_places_capacity, p_max_luggage_weight);
+  
+  COMMIT;
+END;
+
+EXEC ADD_PLANE('Boeing 748', 300, 5000);
+COMMIT;
+
+--9--
+
+CREATE OR REPLACE PROCEDURE UPDATE_PLANE(
+  p_plane_id NUMBER,
+  p_plane_model NVARCHAR2,
+  p_places_capacity NUMBER,
+  p_max_luggage_weight NUMBER
+)
+AS
+BEGIN
+  UPDATE Plane
+  SET plane_model = p_plane_model,
+      places_capacity = p_places_capacity,
+      max_luggage_weight = p_max_luggage_weight
+  WHERE plane_id = p_plane_id;
+  
+  COMMIT;
+END;
+
+EXEC UPDATE_PLANE(2, 'Airbus A320', 180, 3000);
+COMMIT;
+
+--10--
+
+CREATE OR REPLACE PROCEDURE DELETE_PLANE(
+  p_plane_id NUMBER
+)
+AS
+BEGIN
+  DELETE FROM Plane
+  WHERE plane_id = p_plane_id;
+  
+  COMMIT;
+END;
+
+EXEC DELETE_PLANE(3);
+COMMIT;
+
+--11--
+
+CREATE OR REPLACE PROCEDURE ADD_TICKET(
+  p_flight_number NUMBER,
+  p_place_number NUMBER,
+  p_price NUMBER,
+  p_status_num NUMBER,
+  p_customer_id NUMBER,
+  p_luggage_id NUMBER
+)
+AS
+BEGIN
+  INSERT INTO Ticket (flight_number, place_number, price, status_num, customer_id, luggage_id)
+  VALUES (p_flight_number, p_place_number, p_price, p_status_num, p_customer_id, p_luggage_id);
+  
+  COMMIT;
+END;
+
+EXEC ADD_TICKET(1, 10, 100.50, 1, 1001, 500);
+COMMIT;
+
+--12--
+
+CREATE OR REPLACE PROCEDURE UPDATE_TICKET(
+  p_ticket_num NUMBER,
+  p_flight_number NUMBER,
+  p_place_number NUMBER,
+  p_price NUMBER,
+  p_status_num NUMBER,
+  p_customer_id NUMBER,
+  p_luggage_id NUMBER
+)
+AS
+BEGIN
+  UPDATE Ticket
+  SET flight_number = p_flight_number,
+      place_number = p_place_number,
+      price = p_price,
+      status_num = p_status_num,
+      customer_id = p_customer_id,
+      luggage_id = p_luggage_id
+  WHERE ticket_num = p_ticket_num;
+  
+  COMMIT;
+END;
+
+EXEC UPDATE_TICKET(2, 3, 20, 150.75, 2, 1002, 600);
+COMMIT;
+
+--13--
+
+CREATE OR REPLACE PROCEDURE DELETE_TICKET(
+  p_ticket_num NUMBER
+)
+AS
+BEGIN
+  DELETE FROM Ticket
+  WHERE ticket_num = p_ticket_num;
+  
+  COMMIT;
+END;
+
+EXEC DELETE_TICKET(1);
+COMMIT;
+
+--14--
+
+CREATE OR REPLACE PROCEDURE ADD_AIRPORT(
+  p_airport_name NVARCHAR2,
+  p_location_country NVARCHAR2,
+  p_location_city NVARCHAR2
+)
+AS
+BEGIN
+  INSERT INTO Airport (airport_name, location_country, location_city)
+  VALUES (p_airport_name, p_location_country, p_location_city);
+  
+  COMMIT;
+END;
+
+EXEC ADD_AIRPORT('JFK International Airport', 'United States', 'New York');
+COMMIT;
+
+--15--
+
+CREATE OR REPLACE PROCEDURE UPDATE_AIRPORT(
+  p_airport_id NUMBER,
+  p_airport_name NVARCHAR2,
+  p_location_country NVARCHAR2,
+  p_location_city NVARCHAR2
+)
+AS
+BEGIN
+  UPDATE Airport
+  SET airport_name = p_airport_name,
+      location_country = p_location_country,
+      location_city = p_location_city
+  WHERE airport_id = p_airport_id;
+  
+  COMMIT;
+END;
+
+EXEC UPDATE_AIRPORT(2, 'Heathrow Airport', 'United Kingdom', 'London');
+COMMIT;
+
+--16--
+
+CREATE OR REPLACE PROCEDURE DELETE_AIRPORT(
+  p_airport_id NUMBER
+)
+AS
+BEGIN
+  DELETE FROM Airport
+  WHERE airport_id = p_airport_id;
+  
+  COMMIT;
+END;
+
+EXEC DELETE_AIRPORT(3);
+COMMIT;
+
+--17--
+
+CREATE OR REPLACE PROCEDURE MONITOR_USERS AS
+  CURSOR c_users IS 
+    SELECT c.customer_id, c.full_name, c.passport_series, c.date_of_birth, COUNT(t.ticket_num) AS active_tickets
+    FROM Customer c
+    LEFT JOIN Ticket t ON c.customer_id = t.customer_id AND t.status_num IN (SELECT status_num FROM Ticket_status WHERE status_description = 'Booked')
+    GROUP BY c.customer_id, c.full_name, c.passport_series, c.date_of_birth;
+  v_user c_users%ROWTYPE;
+BEGIN
+  OPEN c_users;
+  LOOP
+    FETCH c_users INTO v_user;
+    EXIT WHEN c_users%NOTFOUND;
+    DBMS_OUTPUT.PUT_LINE('Customer ID: ' || v_user.customer_id || ', Full Name: ' || v_user.full_name || ', Passport Series: ' || v_user.passport_series || ', Date of Birth: ' || v_user.date_of_birth || ', Booked Tickets: ' || v_user.active_tickets);
+  END LOOP;
+  CLOSE c_users;
+END monitor_users;
+
+
+BEGIN
+ MONITOR_USERS;
+END;
+/
+
+--18--
+
+CREATE OR REPLACE PROCEDURE  FLIGHT_HISTORY AS
+  CURSOR c_flights IS 
+    SELECT f.flight_number, f.departure_datetime, f.arrive_datetime, s.status_description, 
+           a1.location_city AS departure_city, a2.location_city AS destination_city
+    FROM Flight f
+    JOIN Status s ON f.status = s.status_id
+    JOIN Route r ON f.route_id = r.route_id
+    JOIN Airport a1 ON r.departure_city_id = a1.airport_id
+    JOIN Airport a2 ON r.destination_city_id = a2.airport_id;
+  v_flight c_flights%ROWTYPE;
+BEGIN
+  OPEN c_flights;
+  LOOP
+    FETCH c_flights INTO v_flight;
+    EXIT WHEN c_flights%NOTFOUND;
+    DBMS_OUTPUT.PUT_LINE('Flight Number: ' || v_flight.flight_number || ', Departure: ' || v_flight.departure_datetime || ', Arrival: ' || v_flight.arrive_datetime || ', Departure City: ' || v_flight.departure_city || ', Destination City: ' || v_flight.destination_city || ', Status: ' || v_flight.status_description);
+  END LOOP;
+  CLOSE c_flights;
+END flight_history;
+
+
+BEGIN
+  FLIGHT_HISTORY;
+END;
+/
+
+--19--
+
+CREATE OR REPLACE PROCEDURE MONITOR_PLANES AS
+  CURSOR c_planes IS SELECT * FROM Plane;
+  v_plane c_planes%ROWTYPE;
+BEGIN
+  OPEN c_planes;
+  LOOP
+    FETCH c_planes INTO v_plane;
+    EXIT WHEN c_planes%NOTFOUND;
+    DBMS_OUTPUT.PUT_LINE('Plane ID: ' || v_plane.plane_id || ', Model: ' || v_plane.plane_model || ', Capacity: ' || v_plane.places_capacity || ', Max Luggage Weight: ' || v_plane.max_luggage_weight);
+  END LOOP;
+  CLOSE c_planes;
+END monitor_planes;
+
+BEGIN
+  MONITOR_PLANES;
+END;
+/
+--5--
+select * from status;
+
+CREATE OR REPLACE PROCEDURE CHECK_FLIGHTS AS
+BEGIN
+    UPDATE Flight
+    SET status = 
+        CASE 
+            WHEN departure_datetime > SYSDATE AND SYSDATE < arrive_datetime THEN 5 -- "Executing"
+            WHEN SYSDATE >= arrive_datetime THEN 3 -- "Completed"
+        END
+    WHERE status = 1; 
+END;
+
+SELECT
+  owner,
+  object_name AS procedure_name,
+  object_type AS procedure_type
+FROM
+  all_procedures
+WHERE
+  object_type IN ('PROCEDURE', 'FUNCTION');

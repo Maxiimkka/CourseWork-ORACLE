@@ -1,0 +1,19 @@
+{
+  "airports": [
+    {
+      "airport_name": "Minsk National Airport",
+      "location_country": "Belarus",
+      "location_city": "Minsk"
+    },
+    {
+      "airport_name": "Brest Airport",
+      "location_country": "Belarus",
+      "location_city": "Brest"
+    },
+    {
+      "airport_name": "Gomel Airport",
+      "location_country": "Belarus",
+      "location_city": "Gomel"
+    }
+  ]
+}
